@@ -1,0 +1,25 @@
+{
+  "name": "angular-tooltip",
+  "version": "1.0",
+  "description": "Angular.js tooltip module",
+  "main": "index.js",
+  "keywords": [
+    "tooltip",
+    "tooltips",
+    "popover",
+    "angularjs",
+    "angular"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kawoou/angular-tooltip.git"
+  },
+  "license": "MIT",
+  "devDependencies": {},
+  "author": {
+    "name": "Kawoou",
+    "email": "kawoou@kawoou.kr",
+    "url": "https://github.com/kawoou"
+  },
+  "contributors": []
+}
