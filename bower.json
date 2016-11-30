@@ -1,0 +1,25 @@
+{
+  "name": "angular-tooltip",
+  "version": "1.0",
+  "description": "Angular.js tooltip module",
+  "authors": [
+    "Kawoou <kawoou@kawoou.kr>"
+  ],
+  "keywords": [
+    "tooltip",
+    "tooltips",
+    "popover",
+    "angularjs",
+    "angular"
+  ],
+  "main": [
+    "./dist/angular-tooltip.min.js"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "*.html"
+  ]
+}
