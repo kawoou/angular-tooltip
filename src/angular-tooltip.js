@@ -4,12 +4,28 @@
 (function (angular, window) {
     'use strict';
 
+    var /*Object<String,Number>*/ typeList = {
+        LEFT: 1,
+        RIGHT: 2,
+        TOP: 3,
+        BOTTOM: 4
+    };
+    var /*Array<Function>*/ tooltipQueue = [];
+
+    function getScreenWidth() {
+        return window.innerHeight || document.documentElement.clientHeight;
+    }
+    function getScreenHeight() {
+        return window.innerHeight || document.documentElement.clientHeight;
+    }
+
     angular.module('kw.tooltip', [])
-        .directive('tooltip', ['$q', '$document', '$compile', '$sce', '$templateRequest', function (
+        .directive('tooltip', ['$q', '$document', '$compile', '$sce', '$timeout', '$templateRequest', function (
             $q,
             $document,
             $compile,
             $sce,
+            $timeout,
             $templateRequest
         ) {
             // ttText
@@ -17,18 +33,10 @@
             // ttScopeModel
             // ttDisable
 
-            var /*Object<String,Number>*/ typeList = {
-                LEFT: 1,
-                RIGHT: 2,
-                TOP: 3,
-                BOTTOM: 4
-            };
-
-            var /*Array<Function>*/ tooltipQueue = [];
-
-            function calcElementPosition(/*Number*/type, /*Number*/padding, /*Object*/srcRect, /*Object=undefined*/targetRect) {
+            function calcElementPosition(/*Number*/type, /*Number*/padding, /*ClientRect*/srcRect, /*ClientRect=undefined*/targetRect) {
                 var /*Number*/ x;
                 var /*Number*/ y;
+                var /*Number*/ screenHeight = getScreenHeight();
 
                 switch (type) {
                     case typeList.LEFT:
@@ -60,21 +68,21 @@
                             if (y < padding)
                                 y = padding;
 
-                            if (y + targetRect.height >= window.innerHeight)
-                                y -= (y + targetRect.height + padding) - window.innerHeight;
+                            if (y + targetRect.height >= screenHeight)
+                                y -= (y + targetRect.height + padding) - screenHeight;
 
                             break;
                         case typeList.RIGHT:
                             y -= (targetRect.height - srcRect.height) / 2;
 
-                            if (x + targetRect.width >= window.innerWidth)
+                            if (x + targetRect.width >= screenHeight)
                                 x = srcRect.left - targetRect.width - padding;
 
                             if (y < padding)
                                 y = padding;
 
-                            if (y + targetRect.height >= window.innerHeight)
-                                y -= (y + targetRect.height + padding) - window.innerHeight;
+                            if (y + targetRect.height >= screenHeight)
+                                y -= (y + targetRect.height + padding) - screenHeight;
 
                             break;
                         case typeList.BOTTOM:
@@ -83,10 +91,10 @@
                             if (x < padding)
                                 x = padding;
 
-                            if (x + targetRect.width >= window.innerWidth)
-                                x += (window.innerWidth - x - targetRect.width - padding);
+                            if (x + targetRect.width >= screenHeight)
+                                x += (screenHeight - x - targetRect.width - padding);
 
-                            if (y + targetRect.height >= window.innerHeight)
+                            if (y + targetRect.height >= screenHeight)
                                 y = srcRect.top - targetRect.height - padding;
 
                             break;
@@ -97,8 +105,8 @@
                             if (x < padding)
                                 x = padding;
 
-                            if (x + targetRect.width >= window.innerWidth)
-                                x += (window.innerWidth - x - targetRect.width - padding);
+                            if (x + targetRect.width >= screenHeight)
+                                x += (screenHeight - x - targetRect.width - padding);
 
                             if (y < padding)
                                 y = srcRect.bottom + padding;
@@ -124,13 +132,14 @@
                         waitTime: 250,
                         animationTime: 250,
                         padding: 5,
-                        useHTML: false
+                        useHTML: false,
+                        zIndex: 1000
                     };
 
                     var /*Boolean*/ isMouseOver = false;
                     var /*Number*/ waitTimer = null;
                     var /*String*/ templateSrc = null;
-                    var /*Number*/ type = typeList[$attr['ttType']] || typeList.TOP;
+                    var /*Number*/ type = typeList[($attr['ttType'] || 'TOP').toUpperCase()];
 
                     var tooltipDOM = null;
 
@@ -161,6 +170,7 @@
 
                     // Method
                     function openMenu() {
+                        // Golden-Path
                         if (waitTimer)
                             return;
 
@@ -178,44 +188,59 @@
                         tooltipQueue = [];
                         tooltipQueue.push(closeMenu);
 
-                        // Element Init
-                        var /*Object*/ elementRect = $element[0].getBoundingClientRect();
+                        // Element initialize
+                        var /*ClientRect*/ elementRect = $element[0].getBoundingClientRect();
                         tooltipDOM = angular.element(templateSrc);
-                        angular.element(document.body).append(tooltipDOM);
-
-                        // Bind Scope
-                        $scope.model = getEvalAttr($attr['ttScopeModel']);
-
-                        $compile(tooltipDOM)($scope);
-                        SafeApply($scope);
 
                         if (tooltipDOM) {
+                            // Append element
+                            angular.element(document.body).append(tooltipDOM);
+
+                            // Bind scope
+                            $scope.options = options;
+                            $scope.model = getEvalAttr($attr['ttScopeModel']);
+
+                            // Compile element
+                            $compile(tooltipDOM)($scope);
+                            SafeApply();
+
+                            // Set start position
                             var /*Object*/ position = calcElementPosition(type, options.padding, elementRect, tooltipDOM[0].getBoundingClientRect());
                             tooltipDOM[0].style.left = position.x.toString() + 'px';
                             tooltipDOM[0].style.top = position.y.toString() + 'px';
 
-                            setTimeout(function () {
+                            // Transition
+                            $timeout(function () {
                                 try {
                                     if (!tooltipDOM)
                                         return;
 
-                                    var /*String*/ secondString = (options.animationTime / 1000.0).toFixed(2) + 's';
-                                    tooltipDOM[0].style['transition'] = 'all ' + secondString;
-                                    tooltipDOM[0].style['-o-transition'] = 'all ' + secondString;
-                                    tooltipDOM[0].style['-ms-transition'] = 'all ' + secondString;
-                                    tooltipDOM[0].style['-moz-transition'] = 'all ' + secondString;
-                                    tooltipDOM[0].style['-webkit-transition'] = 'all ' + secondString;
+                                    var /*String*/ transitionText = 'all ' + (options.animationTime / 1000.0).toFixed(2) + 's';
+                                    tooltipDOM[0].style['transition'] = transitionText;
+                                    tooltipDOM[0].style['-o-transition'] = transitionText;
+                                    tooltipDOM[0].style['-ms-transition'] = transitionText;
+                                    tooltipDOM[0].style['-moz-transition'] = transitionText;
+                                    tooltipDOM[0].style['-webkit-transition'] = transitionText;
                                     tooltipDOM[0].style.opacity = 1;
-                                    tooltipDOM[0].style['z-index'] = def.zorder.Tooltip;
+                                    tooltipDOM[0].style['z-index'] = options.zIndex;
 
                                     position = calcElementPosition(type, options.padding, elementRect, tooltipDOM[0].getBoundingClientRect());
                                     tooltipDOM[0].style.left = position.x.toString() + 'px';
                                     tooltipDOM[0].style.top = position.y.toString() + 'px';
-                                } catch (e) {}
-                            }, 0);
+                                } catch (e) {
+                                    console.error('Not found Tooltip element!');
+                                    console.error(e);
+                                }
+                            });
+                        } else {
+                            console.error('Failed to create Tooltip element!');
                         }
                     }
                     function closeMenu() {
+                        // Golden-Path
+                        if (!tooltipDOM)
+                            return;
+
                         var tempDOM = tooltipDOM;
                         tooltipDOM = null;
 
@@ -307,7 +332,8 @@
                                 waitTime: 250,
                                 animationTime: 250,
                                 padding: 5,
-                                useHTML: false
+                                useHTML: false,
+                                zIndex: 1000
                             });
                             init();
                         });
